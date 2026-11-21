@@ -12,6 +12,7 @@ foreach ( (array) $changes as $name => $original ) {
 }
 delete_option( 'lxjanitor_autoload_changes' );
 delete_option( 'lxjanitor_history' );
+delete_option( 'lxjanitor_baseline' );
 delete_transient( 'lxjanitor_probe' );
 delete_site_transient( 'lxjanitor_release' );
 wp_cache_delete( 'alloptions', 'options' );

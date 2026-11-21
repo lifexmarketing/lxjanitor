@@ -366,17 +366,37 @@ class LXJ_Metrics {
 	}
 
 	/**
-	 * First snapshot from history (the baseline), or null.
+	 * The baseline: the first snapshot ever recorded on this site, or null.
 	 *
-	 * @return array|null
+	 * Stored in its own option so it survives history trimming (history keeps the last 50 entries).
+	 * Sites that recorded snapshots before the baseline was stored separately are migrated here, once,
+	 * from the oldest snapshot still in their history.
+	 *
+	 * @return array|null History entry (time, user, type, data).
 	 */
 	public static function baseline_snapshot() {
+		$stored = get_option( LXJ_BASELINE_OPTION, null );
+		if ( is_array( $stored ) && isset( $stored['data'] ) ) {
+			return $stored;
+		}
 		foreach ( (array) get_option( LXJ_HISTORY_OPTION, array() ) as $entry ) {
 			if ( isset( $entry['type'] ) && 'snapshot' === $entry['type'] ) {
+				update_option( LXJ_BASELINE_OPTION, $entry, false );
 				return $entry;
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Whether a history entry is the stored baseline.
+	 *
+	 * @param array $entry History entry.
+	 * @return bool
+	 */
+	public static function is_baseline( array $entry ) {
+		$base = self::baseline_snapshot();
+		return $base && 'snapshot' === ( $entry['type'] ?? '' ) && (int) $base['time'] === (int) ( $entry['time'] ?? 0 );
 	}
 
 	/**

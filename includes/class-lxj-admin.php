@@ -19,6 +19,29 @@ class LXJ_Admin {
 		add_action( 'admin_post_lxj_probe', array( __CLASS__, 'handle_probe' ) );
 		add_action( 'admin_post_lxj_tables', array( __CLASS__, 'handle_tables' ) );
 		add_action( 'admin_post_lxj_tables_unknown', array( __CLASS__, 'handle_tables_unknown' ) );
+		add_action( 'admin_post_' . LXJ_Report::ACTION, array( 'LXJ_Report', 'handle' ) );
+		add_action( 'admin_post_lxj_reset_baseline', array( __CLASS__, 'handle_reset_baseline' ) );
+	}
+
+	public static function handle_reset_baseline() {
+		self::guard( 'lxj_reset_baseline' );
+		if ( empty( $_POST['confirm_reset'] ) ) {
+			self::done( 'overview', 'The baseline was not reset. Tick the confirmation box to reset it.', 'error' );
+		}
+		$r    = lxj_reset_baseline();
+		$data = (array) $r['current']['data'];
+		$msg  = sprintf( 'Baseline reset. New baseline: database %s, autoload %s.', lxj_bytes( $data['db_size'] ?? 0 ), lxj_bytes( $data['autoload_bytes'] ?? 0 ) );
+		if ( $r['previous'] ) {
+			$msg .= ' The previous baseline (' . wp_date( 'M j, Y', $r['previous']['time'] ) . ') is recorded in History.';
+		}
+		self::done( 'overview', $msg );
+	}
+
+	private static function report_button() {
+		printf(
+			'<p><a class="button" href="%s" target="_blank" rel="noopener">Download PDF report</a> <span class="description">Opens a printable report; choose "Save as PDF" in the print dialog.</span></p>',
+			esc_url( LXJ_Report::url() )
+		);
 	}
 
 	public static function menu() {
@@ -177,10 +200,10 @@ class LXJ_Admin {
 	public static function render() {
 		$tabs = array(
 			'overview' => 'Overview',
-			'cleanup'  => 'Database',
 			'crons'    => 'Cron',
 			'autoload' => 'Autoload',
 			'tables'   => 'Tables',
+			'cleanup'  => 'Database',
 			'history'  => 'History',
 		);
 		$tab  = isset( $_GET['tab'] ) && isset( $tabs[ $_GET['tab'] ] ) ? sanitize_key( $_GET['tab'] ) : 'overview'; // phpcs:ignore WordPress.Security.NonceVerification
@@ -218,33 +241,44 @@ class LXJ_Admin {
 
 	private static function tab_overview() {
 		$baseline = LXJ_Metrics::baseline_snapshot();
-		$latest   = LXJ_Metrics::last_snapshot();
-		$current  = LXJ_Metrics::snapshot( false );
 
 		echo '<h2>Where things stand</h2>';
 		echo '<table class="widefat striped lxj-compare"><thead><tr><th>Metric</th><th>Baseline</th><th>Now</th><th>Change</th></tr></thead><tbody>';
-		$base = $baseline ? $baseline['data'] : null;
-		self::compare_row( 'Database size', $base['db_size'] ?? null, $current['db_size'], true );
-		self::compare_row( 'Autoloaded options (target under 500 KB)', $base['autoload_bytes'] ?? null, $current['autoload_bytes'], true );
-		self::compare_row( 'Post revisions', $base['counts']['revisions'] ?? null, $current['counts']['revisions'] );
-		$as_now  = $current['action_scheduler'] ? array_sum( array_diff_key( $current['action_scheduler'], array( '_logs' => 1 ) ) ) : null;
-		$as_base = ! empty( $base['action_scheduler'] ) ? array_sum( array_diff_key( $base['action_scheduler'], array( '_logs' => 1 ) ) ) : null;
-		self::compare_row( 'Action Scheduler actions', $as_base, $as_now );
-		self::compare_row( 'Cron events', $base['cron_events'] ?? null, $current['cron_events'] );
-		$ttfb_base = $base['ttfb']['median_ms'] ?? null;
-		$ttfb_last = $latest['data']['ttfb']['median_ms'] ?? null;
-		self::compare_row( 'Uncached home page response, ms (from latest snapshot)', $ttfb_base, $ttfb_last );
+		// Same rows as the printable report, so the two never disagree.
+		foreach ( LXJ_Report::comparison_rows() as $row ) {
+			$pct = LXJ_Report::change( $row );
+			printf(
+				'<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+				esc_html( $row['label'] ),
+				esc_html( LXJ_Report::format_value( $row, 'before' ) ),
+				esc_html( LXJ_Report::format_value( $row, 'now' ) ),
+				esc_html( null === $pct ? '—' : sprintf( '%+.0f%%', $pct ) )
+			);
+		}
 		echo '</tbody></table>';
 
 		echo '<p>';
 		echo $baseline
 			? esc_html( 'Baseline recorded ' . wp_date( 'M j, Y g:i a', $baseline['time'] ) . '. ' )
 			: '<strong>No baseline yet.</strong> Record one before cleanup so you can show the improvement. ';
-		echo 'Snapshots measure server response from the server itself, so use PageSpeed Insights and Client Site Monitor for visitor-facing numbers.</p>';
+		echo esc_html( LXJ_Report::TTFB_CAVEAT ) . '</p>';
 
 		self::form_open( 'lxj_snapshot' );
 		submit_button( $baseline ? 'Record snapshot now' : 'Record baseline snapshot', 'primary', 'submit', false );
 		echo '</form>';
+		self::report_button();
+
+		if ( $baseline ) {
+			echo '<details class="lxj-reset"><summary>Reset baseline</summary>';
+			echo '<p>Only reset the baseline when the old starting point no longer means anything, for example after a site rebuild, a migration to new hosting, or a restore from an old backup. '
+				. 'Resetting takes a new snapshot now (including the home page speed check, which takes a few seconds) and uses it as the baseline. '
+				. 'Every "Baseline" and "Change" figure on this page and in reports will then compare against the new snapshot, so improvements made before today will no longer show. '
+				. 'The current baseline\'s figures (' . esc_html( wp_date( 'M j, Y', $baseline['time'] ) ) . ') are kept in History.</p>';
+			self::form_open( 'lxj_reset_baseline' );
+			echo '<p><label><input type="checkbox" name="confirm_reset" value="1" required> I understand that reports will no longer show improvements made before today.</label></p>';
+			submit_button( 'Reset baseline to a new snapshot', 'delete', 'submit', false );
+			echo '</form></details>';
+		}
 
 		echo '<h2>Recommendations</h2>';
 		$recs = LXJ_Advisor::recommendations();
@@ -276,21 +310,6 @@ class LXJ_Admin {
 			echo '<li>' . esc_html( $step ) . '</li>';
 		}
 		echo '</ul>';
-	}
-
-	private static function compare_row( $label, $before, $now, $bytes = false ) {
-		$fmt = function ( $v ) use ( $bytes ) {
-			if ( null === $v ) {
-				return '&mdash;';
-			}
-			return esc_html( $bytes ? lxj_bytes( $v ) : number_format_i18n( $v ) );
-		};
-		$change = '&mdash;';
-		if ( null !== $before && null !== $now && $before > 0 ) {
-			$pct    = ( $now - $before ) / $before * 100;
-			$change = esc_html( sprintf( '%+.0f%%', $pct ) );
-		}
-		printf( '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>', esc_html( $label ), $fmt( $before ), $fmt( $now ), $change ); // phpcs:ignore WordPress.Security.EscapeOutput -- escaped above.
 	}
 
 	private static function tab_cleanup() {
@@ -519,14 +538,14 @@ class LXJ_Admin {
 			echo '<p>Nothing recorded yet.</p>';
 			return;
 		}
-		echo '<table class="widefat striped"><thead><tr><th>When</th><th>Who</th><th>Type</th><th>Details</th></tr></thead><tbody>';
+		self::report_button();
+		echo '<table class="widefat striped"><thead><tr><th>When</th><th>Who</th><th>What happened</th></tr></thead><tbody>';
 		foreach ( $history as $h ) {
-			$user = get_userdata( $h['user'] );
 			printf(
-				'<tr><td>%s</td><td>%s</td><td>%s</td><td><code class="lxj-json">%s</code></td></tr>',
+				'<tr><td>%s</td><td>%s</td><td>%s<details><summary>Raw details</summary><code class="lxj-json">%s</code></details></td></tr>',
 				esc_html( wp_date( 'M j, Y g:i a', $h['time'] ) ),
-				esc_html( $user ? $user->user_login : 'WP-CLI/system' ),
-				esc_html( $h['type'] ),
+				esc_html( LXJ_Report::who( (int) $h['user'] ) ),
+				esc_html( LXJ_Report::summarize( $h, LXJ_Metrics::is_baseline( $h ) ) ),
 				esc_html( wp_json_encode( $h['data'] ) )
 			);
 		}

@@ -19,3 +19,8 @@
 .lxj-danger-zone { max-width: 1100px; margin-top: 2.5em; padding: 0 16px 8px; border: 2px solid #b32d2e; border-radius: 4px; background: #fff; }
 .lxj-danger-zone h2 { color: #b32d2e; margin-top: 1em; }
 .lxj-danger-zone .notice { margin: 1em 0; }
+.lxj details { margin-top: 4px; }
+.lxj details summary { cursor: pointer; color: #646970; font-size: 12px; }
+.lxj-reset { max-width: 1100px; margin: 1.5em 0; }
+.lxj-reset > summary { cursor: pointer; color: #b32d2e; font-weight: 600; }
+.lxj-reset > p { max-width: 760px; }
