@@ -1,0 +1,21 @@
+.lxj h2 { margin-top: 2em; }
+.lxj .widefat { max-width: 1100px; }
+.lxj form { margin: 1em 0; }
+.lxj-sev { display: inline-block; padding: 2px 8px; border-radius: 3px; font-weight: 600; text-transform: uppercase; font-size: 11px; color: #fff; }
+.lxj-sev-high { background: #b32d2e; }
+.lxj-sev-medium { background: #996800; }
+.lxj-sev-low { background: #2271b1; }
+.lxj-sev-info { background: #646970; }
+.lxj-recs td { vertical-align: top; }
+.lxj-recs td:first-child { width: 80px; }
+.lxj-bad { color: #b32d2e; }
+.lxj-good { color: #00a32a; }
+.lxj-owner { font-size: 11px; padding: 1px 6px; border-radius: 3px; background: #f0f0f1; }
+.lxj-owner-inactive, .lxj-owner-unknown { background: #fcf0c3; }
+.lxj-json { display: block; white-space: pre-wrap; word-break: break-all; max-height: 8em; overflow: auto; font-size: 11px; }
+.lxj-owner-not-installed { background: #fcf0c3; }
+.lxj-owner-active { background: #d1e7dd; }
+.lxj-tables td code { display: inline-block; margin: 0 4px 4px 0; }
+.lxj-danger-zone { max-width: 1100px; margin-top: 2.5em; padding: 0 16px 8px; border: 2px solid #b32d2e; border-radius: 4px; background: #fff; }
+.lxj-danger-zone h2 { color: #b32d2e; margin-top: 1em; }
+.lxj-danger-zone .notice { margin: 1em 0; }

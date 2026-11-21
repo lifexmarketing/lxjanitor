@@ -1,0 +1,38 @@
+# Builds lxjanitor.zip (top-level folder lxjanitor/) and attaches it to each published release.
+# WordPress sites running LX Janitor install updates from that asset.
+name: Build release zip
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the plugin version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          HEADER=$(grep -m1 -E '^\s*\*\s*Version:' lxjanitor.php | awk '{print $NF}')
+          CONST=$(grep -m1 -oE "LXJ_VERSION', '[^']+'" lxjanitor.php | grep -oE "[0-9][0-9.]*")
+          echo "tag=$TAG header=$HEADER constant=$CONST"
+          if [ "$TAG" != "$HEADER" ] || [ "$TAG" != "$CONST" ]; then
+            echo "::error::Release tag v$TAG does not match the plugin Version header ($HEADER) and LXJ_VERSION ($CONST). Sites would keep re-offering this update. Fix the version and publish again."
+            exit 1
+          fi
+
+      - name: Build zip
+        run: |
+          # git archive honors export-ignore in .gitattributes, so repo-only files stay out of the plugin.
+          git archive --format=zip --prefix=lxjanitor/ -o lxjanitor.zip HEAD
+          unzip -l lxjanitor.zip
+
+      - name: Attach to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" lxjanitor.zip --clobber

@@ -1,0 +1,8 @@
+# Internal shortcuts and OS files (e.g. the link to the internal speed optimization guide).
+*.url
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local build output
+/lxjanitor.zip
