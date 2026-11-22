@@ -43,7 +43,7 @@ class LXJ_CLI {
 	 * ## OPTIONS
 	 *
 	 * [--tasks=<tasks>]
-	 * : Comma-separated task keys. Default: all.
+	 * : Comma-separated task keys. Default: all except woocommerce_log (name it to include it).
 	 *
 	 * [--yes]
 	 * : Skip the backup confirmation.
@@ -57,7 +57,7 @@ class LXJ_CLI {
 	public function clean( $args, $assoc_args ) {
 		WP_CLI::confirm( 'Do you have a current backup?', $assoc_args );
 		$all   = array_keys( LXJ_Cleaner::tasks() );
-		$tasks = isset( $assoc_args['tasks'] ) ? array_intersect( $all, explode( ',', $assoc_args['tasks'] ) ) : $all;
+		$tasks = isset( $assoc_args['tasks'] ) ? array_intersect( $all, explode( ',', $assoc_args['tasks'] ) ) : array_diff( $all, LXJ_Cleaner::off_by_default() );
 
 		if ( ! LXJ_Metrics::baseline_snapshot() ) {
 			lxj_log( 'snapshot', LXJ_Metrics::snapshot( false ) + array( 'auto' => true ) );

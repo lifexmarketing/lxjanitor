@@ -56,6 +56,16 @@ class LXJ_Cleaner {
 	}
 
 	/**
+	 * Tasks left unticked on the Database tab and skipped by `wp lxjanitor clean` unless named with --tasks.
+	 * Most sites never logged WooCommerce to the database, so that task is opt-in.
+	 *
+	 * @return string[] Task keys.
+	 */
+	public static function off_by_default() {
+		return array( 'woocommerce_log' );
+	}
+
+	/**
 	 * Run one task by key.
 	 *
 	 * @param string $task Key from tasks().

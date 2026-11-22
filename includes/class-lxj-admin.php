@@ -340,12 +340,14 @@ class LXJ_Admin {
 
 		self::form_open( 'lxj_clean' );
 		echo '<table class="widefat striped"><thead><tr><td class="check-column"></td><th>Task</th><th>Currently</th></tr></thead><tbody>';
+		$off = LXJ_Cleaner::off_by_default();
 		foreach ( LXJ_Cleaner::tasks() as $key => $label ) {
 			printf(
-				'<tr><th class="check-column"><input type="checkbox" name="tasks[]" value="%1$s" id="lxj-%1$s" checked></th><td><label for="lxj-%1$s">%2$s</label></td><td>%3$s</td></tr>',
+				'<tr><th class="check-column"><input type="checkbox" name="tasks[]" value="%1$s" id="lxj-%1$s"%4$s></th><td><label for="lxj-%1$s">%2$s</label></td><td>%3$s</td></tr>',
 				esc_attr( $key ),
 				esc_html( $label ),
-				esc_html( $current[ $key ] )
+				esc_html( $current[ $key ] ),
+				in_array( $key, $off, true ) ? '' : ' checked'
 			);
 		}
 		echo '</tbody></table>';
@@ -416,6 +418,10 @@ class LXJ_Admin {
 				'active'   => 'active plugin',
 				'inactive' => 'inactive plugin',
 				'not installed' => 'plugin not installed',
+				'active theme'        => 'active theme',
+				'inactive theme'      => 'inactive theme',
+				'theme not installed' => 'theme deleted',
+				'legacy'              => 'legacy, unused',
 				'unknown'   => 'not matched',
 				'transient' => 'transient',
 			)[ $r['owner_status'] ] ?? $r['owner_status'];

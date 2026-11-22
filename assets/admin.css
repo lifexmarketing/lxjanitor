@@ -24,3 +24,6 @@
 .lxj-reset { max-width: 1100px; margin: 1.5em 0; }
 .lxj-reset > summary { cursor: pointer; color: #b32d2e; font-weight: 600; }
 .lxj-reset > p { max-width: 760px; }
+.lxj-owner-active-theme { background: #d1e7dd; }
+.lxj-owner-inactive-theme, .lxj-owner-theme-not-installed { background: #fcf0c3; }
+.lxj-owner-legacy { background: #fcf0c3; }

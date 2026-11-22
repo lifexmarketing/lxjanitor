@@ -329,13 +329,13 @@ class LXJ_Advisor {
 				if ( $wcl['oldest'] && strtotime( $wcl['oldest'] . ' UTC' ) < time() - ( $days + 2 ) * DAY_IN_SECONDS ) {
 					$detail .= ' Entries older than that are still here, so WooCommerce\'s daily log cleanup is not running (check WP-Cron and the woocommerce_cleanup_logs scheduled action).';
 				}
-				$action = 'Run "WooCommerce database log" on the Database tab after a backup. Unless something needs database logging, switch WooCommerce > Status > Logs > Settings to file system storage, and turn off debug logging in whichever plugin wrote most of the entries.';
+				$action = 'Tick "WooCommerce database log" on the Database tab (it is off by default) and run it after a backup. Unless something needs database logging, switch WooCommerce > Status > Logs > Settings to file system storage, and turn off debug logging in whichever plugin wrote most of the entries.';
 			} else {
 				$detail .= 'WooCommerce is not logging to the database, so these entries are left over from when it did. WooCommerce never cleans this table after the switch.';
 				if ( $wcl['newest'] && strtotime( $wcl['newest'] . ' UTC' ) > time() - 2 * DAY_IN_SECONDS ) {
 					$detail .= ' Recent entries are still being added, so a plugin is writing to this table directly.';
 				}
-				$action = sprintf( 'Run "WooCommerce database log" on the Database tab after a backup. It keeps the last %d days, and empties the table outright when every entry is older. To learn what filled it first: SELECT source, COUNT(*) FROM %s GROUP BY source ORDER BY 2 DESC LIMIT 10;', $days, $wcl['table'] );
+				$action = sprintf( 'Tick "WooCommerce database log" on the Database tab (it is off by default) and run it after a backup. It keeps the last %d days, and empties the table outright when every entry is older. To learn what filled it first: SELECT source, COUNT(*) FROM %s GROUP BY source ORDER BY 2 DESC LIMIT 10;', $days, $wcl['table'] );
 			}
 			$recs[] = array(
 				'id'       => 'woocommerce-log',

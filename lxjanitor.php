@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       LX Janitor
  * Description:       Database cleanup and speed audit for LifeX-managed WordPress sites. Runs the database steps from the LifeX Speed Optimization Guide and recommends follow-up actions it cannot safely do on its own.
- * Version:           0.2.1
+ * Version:           0.2.2
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            LifeX Marketing
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'LXJ_VERSION', '0.2.1' );
+define( 'LXJ_VERSION', '0.2.2' );
 define( 'LXJ_FILE', __FILE__ );
 define( 'LXJ_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LXJ_URL', plugin_dir_url( __FILE__ ) );
