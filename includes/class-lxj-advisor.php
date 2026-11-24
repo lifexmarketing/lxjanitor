@@ -94,6 +94,9 @@ class LXJ_Advisor {
 			);
 		}
 
+		// 1b. Installed but inactive plugins. Paid ones are reported on their own: they may still be billing.
+		$recs = array_merge( $recs, self::inactive_plugin_checks( $plugins ) );
+
 		// 2. Cache-busting cookies and headers on an anonymous home page request.
 		if ( ! empty( $probe['error'] ) ) {
 			$recs[] = array(
@@ -646,10 +649,110 @@ class LXJ_Advisor {
 				'file'   => $file,
 				'slug'   => '.' === $dir ? basename( $file, '.php' ) : $dir,
 				'name'   => $data['Name'],
+				'author' => trim( wp_strip_all_tags( (string) ( $data['Author'] ?? '' ) ) ),
 				'active' => is_plugin_active( $file ),
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * Installed but inactive plugins, with likely-paid ones split out so their subscriptions get canceled.
+	 *
+	 * A plugin counts as paid when its folder is a known commercial slug, or when it is not hosted on
+	 * WordPress.org and its name or folder says Pro, Premium, Gold and so on. Inactive plugins that are not
+	 * on WordPress.org at all are listed with the paid ones too, since they are usually commercial or custom.
+	 *
+	 * @param array[] $plugins From plugins().
+	 * @return array[]
+	 */
+	private static function inactive_plugin_checks( array $plugins ) {
+		$wporg = self::wporg_plugin_files();
+		$known = array_map( 'strtolower', self::premium_slugs() );
+		$words = '/\b(pro|premium|gold|platinum|elite|agency|developer|enterprise|unlimited|professional|lifetime)\b/i';
+
+		$paid  = array();
+		$other = array();
+		foreach ( $plugins as $p ) {
+			if ( $p['active'] ) {
+				continue;
+			}
+			$on_wporg  = null !== $wporg && isset( $wporg[ $p['file'] ] );
+			$off_wporg = null !== $wporg && ! $on_wporg;
+			$label     = $p['name'] . ( '' !== $p['author'] ? ' by ' . $p['author'] : '' );
+
+			if ( in_array( strtolower( $p['slug'] ), $known, true )
+				|| ( ! $on_wporg && ( preg_match( $words, $p['name'] ) || preg_match( $words, str_replace( array( '-', '_' ), ' ', $p['slug'] ) ) ) ) ) {
+				$paid[] = $label;
+			} elseif ( $off_wporg ) {
+				$paid[] = $label . ' (not from WordPress.org, so possibly paid or custom)';
+			} else {
+				$other[] = $label;
+			}
+		}
+
+		$recs      = array();
+		$multisite = is_multisite() ? ' On multisite, confirm it is not active on another site in the network before deleting.' : '';
+		if ( $paid ) {
+			$recs[] = array(
+				'id'       => 'inactive-premium-plugins',
+				'severity' => 'medium',
+				'title'    => sprintf( _n( '%d inactive plugin may still be a paid subscription', '%d inactive plugins may still be paid subscriptions', count( $paid ), 'lxjanitor' ), count( $paid ) ),
+				'detail'   => implode( '; ', $paid ),
+				'action'   => 'Find who holds each license (client or LifeX) and cancel the renewal in the vendor account, or, if the license covers other sites, just release this site\'s activation. Then delete the plugin. Deleting runs its uninstall routine, which can remove its settings and data.' . $multisite,
+			);
+		}
+		if ( $other ) {
+			$recs[] = array(
+				'id'       => 'inactive-plugins',
+				'severity' => 'low',
+				'title'    => sprintf( _n( '%d inactive plugin installed', '%d inactive plugins installed', count( $other ), 'lxjanitor' ), count( $other ) ),
+				'detail'   => implode( '; ', $other ),
+				'action'   => 'Confirm with the client that none are needed, then delete them. Inactive plugins still get flagged for vulnerabilities and need updates. Deleting runs each plugin\'s uninstall routine, which can remove its settings and data.' . $multisite,
+			);
+		}
+		return $recs;
+	}
+
+	/**
+	 * Folders of commercial plugins whose names do not say Pro or Premium.
+	 *
+	 * @return string[]
+	 */
+	private static function premium_slugs() {
+		return apply_filters(
+			'lxjanitor_premium_slugs',
+			array(
+				'gravityforms', 'gravityperks', 'wp-rocket', 'perfmatters', 'flying-press', 'js_composer', 'revslider',
+				'LayerSlider', 'bb-plugin', 'bb-theme-builder', 'divi-builder', 'searchwp', 'facetwp', 'wpforms',
+				'backupbuddy', 'memberpress', 'sfwd-lms', 'sitepress-multilingual-cms', 'affiliate-wp',
+				'google-analytics-premium', 'wpseo-local', 'business-reviews-bundle', 'wp-media-folder',
+				'ultimate-elementor', 'woocommerce-subscriptions', 'woocommerce-memberships', 'automatewoo',
+			)
+		);
+	}
+
+	/**
+	 * Plugin files WordPress.org serves updates for, from the last update check.
+	 *
+	 * @return array<string,bool>|null file => true, or null when the update check data is missing (unknown).
+	 */
+	private static function wporg_plugin_files() {
+		$t = get_site_transient( 'update_plugins' );
+		if ( ! is_object( $t ) ) {
+			return null;
+		}
+		$out = array();
+		foreach ( array( 'response', 'no_update' ) as $key ) {
+			foreach ( (array) ( $t->$key ?? array() ) as $file => $info ) {
+				$info = (object) $info;
+				if ( isset( $info->id ) && 0 === strpos( (string) $info->id, 'w.org/' ) ) {
+					$out[ $file ] = true;
+				}
+			}
+		}
+		// Hosts that block update checks leave this empty; treat that as unknown rather than "nothing is from WordPress.org".
+		return $out ? $out : null;
 	}
 
 	private static function find_plugin( array $plugins, array $slugs, array $names ) {

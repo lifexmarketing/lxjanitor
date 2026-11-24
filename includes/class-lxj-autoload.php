@@ -355,6 +355,12 @@ class LXJ_Autoload {
 					'slugs'  => array( 'wordpress-seo', 'wordpress-seo-premium' ),
 				),
 				array(
+					// Also covers aioseop_options, the pre-4.0 settings the plugin still reads when migrating.
+					'prefix' => 'aioseo',
+					'name'   => 'All in One SEO',
+					'slugs'  => array( 'all-in-one-seo-pack', 'all-in-one-seo-pack-pro' ),
+				),
+				array(
 					'prefix' => 'wpgmza',
 					'name'   => 'WP Go Maps (formerly WP Google Maps)',
 					'slugs'  => array( 'wp-google-maps', 'wp-google-maps-pro' ),
