@@ -457,6 +457,9 @@ class LXJ_Admin {
 			'not installed' => 'not installed',
 			'shared'        => 'shared library',
 			'unknown'       => 'unknown',
+			'active theme'        => 'active theme',
+			'inactive theme'      => 'theme installed, inactive',
+			'theme not installed' => 'theme not installed',
 		);
 
 		self::form_open( 'lxj_tables' );

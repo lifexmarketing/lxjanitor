@@ -19,6 +19,9 @@ class LXJ_Cleaner {
 	/** Matches Action Scheduler's own default retention period. */
 	const AS_RETENTION_DAYS = 31;
 
+	/** A claim lives only while its batch runs (minutes), so anything a day old is from a batch that died. */
+	const AS_CLAIM_DAYS = 1;
+
 	const BATCH = 500;
 
 	/** Log rows are small and deleted by primary key range, so they can go in larger batches. */
@@ -44,7 +47,7 @@ class LXJ_Cleaner {
 	 */
 	public static function tasks() {
 		return array(
-			'action_scheduler'   => 'Action Scheduler: delete completed, canceled and failed actions older than ' . self::AS_RETENTION_DAYS . ' days, plus orphaned logs',
+			'action_scheduler'   => 'Action Scheduler: delete completed, canceled and failed actions older than ' . self::AS_RETENTION_DAYS . ' days, plus orphaned logs and stale claims left by batches that crashed (older than ' . self::AS_CLAIM_DAYS . ' day)',
 			'woocommerce_log'    => 'WooCommerce database log: delete entries older than WooCommerce\'s log retention (' . LXJ_Metrics::wc_log_retention_days() . ' days); empties the table when every entry is older',
 			'revisions'          => 'Post revisions: keep the newest ' . self::KEEP_REVISIONS . ' per post and anything from the last ' . self::KEEP_DAYS . ' days',
 			'trash'              => 'Trashed posts and trashed/spam comments older than ' . self::KEEP_DAYS . ' days',
@@ -143,7 +146,39 @@ class LXJ_Cleaner {
 			$wpdb->query( "DELETE FROM {$logs} WHERE log_id IN ($in)" ); // phpcs:ignore
 		}
 
-		return array( 'removed' => $removed, 'more' => $this->out_of_time() );
+		// Claims left by batches that died mid-run. A finished batch deletes its own claim, and Action Scheduler
+		// frees a dead batch's actions after about 5 minutes but never deletes the claim row. Claims still held
+		// by a pending or in-progress action are kept, however old.
+		$claims  = $wpdb->prefix . 'actionscheduler_claims';
+		$cleared = 0;
+		if ( LXJ_Metrics::table_exists( $claims ) ) {
+			$claim_cutoff = $this->cutoff_mysql( self::AS_CLAIM_DAYS );
+			while ( ! $this->out_of_time() ) {
+				$ids = $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT c.claim_id FROM {$claims} c
+						WHERE c.date_created_gmt < %s
+						AND NOT EXISTS (
+							SELECT 1 FROM {$actions} a WHERE a.claim_id = c.claim_id AND a.status IN ('pending','in-progress')
+						)
+						LIMIT %d",
+						$claim_cutoff,
+						self::LOG_BATCH
+					)
+				);
+				if ( ! $ids ) {
+					break;
+				}
+				$in       = implode( ',', array_map( 'intval', $ids ) );
+				$cleared += (int) $wpdb->query( "DELETE FROM {$claims} WHERE claim_id IN ($in)" ); // phpcs:ignore
+			}
+		}
+
+		return array(
+			'removed' => $removed,
+			'more'    => $this->out_of_time(),
+			'note'    => $cleared ? sprintf( 'Also removed %s stale claims.', number_format_i18n( $cleared ) ) : '',
+		);
 	}
 
 	/**

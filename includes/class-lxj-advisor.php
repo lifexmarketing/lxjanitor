@@ -248,7 +248,7 @@ class LXJ_Advisor {
 		foreach ( LXJ_Tables::review() as $g ) {
 			if ( 'unknown' === $g['id'] ) {
 				$unknown = $g;
-			} elseif ( $g['removable'] && ! $g['blocked'] && ( 'not installed' === $g['status'] || 'gravityforms-legacy' === $g['id'] ) ) {
+			} elseif ( $g['removable'] && ! $g['blocked'] && ( in_array( $g['status'], array( 'not installed', 'theme not installed' ), true ) || 'gravityforms-legacy' === $g['id'] ) ) {
 				// Leftovers: the plugin is gone (Gravity Forms legacy tables are leftovers even with Gravity Forms installed).
 				$held        = LXJ_Tables::describe_data( $g['data'] );
 				$removable[] = $g['name'] . ' (' . lxj_bytes( $g['size'] ) . ( $held ? ', contains ' . $held : '' ) . ')';

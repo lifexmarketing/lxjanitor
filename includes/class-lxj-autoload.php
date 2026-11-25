@@ -370,6 +370,11 @@ class LXJ_Autoload {
 					'name'   => 'FlyingPress',
 					'slugs'  => array( 'flying-press' ),
 				),
+				array(
+					'prefix' => 'site_mailer',
+					'name'   => 'Site Mailer (Elementor)',
+					'slugs'  => array( 'site-mailer' ),
+				),
 			)
 		);
 	}
@@ -396,7 +401,7 @@ class LXJ_Autoload {
 	 * @param string[] $theme_slugs  Theme folder names (case-insensitive).
 	 * @return string
 	 */
-	private static function owner_status( array $plugin_slugs, array $theme_slugs ) {
+	public static function owner_status( array $plugin_slugs, array $theme_slugs ) {
 		$plugin = $plugin_slugs ? LXJ_Tables::plugin_status( $plugin_slugs ) : 'not installed';
 		$theme  = 'theme not installed';
 		foreach ( self::themes() as $folder => $t ) {

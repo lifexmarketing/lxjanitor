@@ -104,12 +104,14 @@ class LXJ_Tables {
 			array( 'id' => 'fluentform', 'name' => 'Fluent Forms', 'slugs' => array( 'fluentform' ), 'prefix' => array( 'fluentform_' ), 'data' => array( 'fluentform_submissions' => 'form submissions' ) ),
 			array( 'id' => 'cfdb7', 'name' => 'Contact Form CFDB7', 'slugs' => array( 'contact-form-cfdb7' ), 'exact' => array( 'db7_forms' ), 'data' => array( 'db7_forms' => 'form submissions' ) ),
 			array( 'id' => 'elementor', 'name' => 'Elementor', 'slugs' => array( 'elementor', 'elementor-pro' ), 'exact' => array( 'e_events', 'e_submissions', 'e_submissions_values', 'e_submissions_actions_log', 'e_notes', 'e_notes_users_relations' ), 'data' => array( 'e_submissions' => 'form submissions' ) ),
+			array( 'id' => 'avadaforms', 'name' => 'Avada Forms (Avada theme / Avada Builder)', 'slugs' => array( 'fusion-builder', 'fusion-core' ), 'themes' => array( 'Avada' ), 'prefix' => array( 'fusion_form' ), 'data' => array( 'fusion_form_submissions' => 'form submissions' ), 'note' => 'Built into Avada. Blocked while Avada is the active theme (or the parent of the active child theme) or Avada Builder is active.' ),
 			array( 'id' => 'wpml', 'name' => 'WPML', 'slugs' => array( 'sitepress-multilingual-cms' ), 'prefix' => array( 'icl_' ) ),
 			array( 'id' => 'itsec', 'name' => 'Solid Security (iThemes Security)', 'slugs' => array( 'better-wp-security', 'ithemes-security-pro' ), 'prefix' => array( 'itsec_' ) ),
 			array( 'id' => 'aiowps', 'name' => 'All In One WP Security', 'slugs' => array( 'all-in-one-wp-security-and-firewall' ), 'prefix' => array( 'aiowps_' ) ),
 			array( 'id' => 'wsal', 'name' => 'WP Activity Log', 'slugs' => array( 'wp-security-audit-log' ), 'prefix' => array( 'wsal_' ) ),
 			array( 'id' => 'simplehistory', 'name' => 'Simple History', 'slugs' => array( 'simple-history' ), 'prefix' => array( 'simple_history' ) ),
 			array( 'id' => 'wpmailsmtp', 'name' => 'WP Mail SMTP', 'slugs' => array( 'wp-mail-smtp', 'wp-mail-smtp-pro' ), 'prefix' => array( 'wpmailsmtp_' ) ),
+			array( 'id' => 'sitemailer', 'name' => 'Site Mailer (Elementor)', 'slugs' => array( 'site-mailer' ), 'prefix' => array( 'site_mail_' ), 'options' => array( 'site_mailer' ), 'data' => array( 'site_mail_logs' => 'email log entries (with recipient addresses)', 'site_mail_suppressions' => 'suppressed addresses (bounces and complaints)' ), 'note' => 'Email log, delivery statuses and the suppression list. Removing them does not affect mail already sent.' ),
 			array( 'id' => 'fluentsmtp', 'name' => 'FluentSMTP', 'slugs' => array( 'fluent-smtp' ), 'prefix' => array( 'fsmpt_' ) ),
 			array( 'id' => 'wprocket', 'name' => 'WP Rocket', 'slugs' => array( 'wp-rocket' ), 'prefix' => array( 'wpr_' ) ),
 			array( 'id' => 'flyingpress', 'name' => 'FlyingPress', 'slugs' => array( 'flying-press' ), 'prefix' => array( 'flying_press_' ) ),
@@ -159,9 +161,9 @@ class LXJ_Tables {
 
 		$owners = apply_filters( 'lxjanitor_table_owners', $owners );
 		foreach ( $owners as &$o ) {
-			$o += array( 'prefix' => array(), 'exact' => array(), 'options' => array(), 'data' => array(), 'note' => '', 'slugs' => array() );
-			// Any recognized plugin's tables can be removed once the plugin is inactive; shared libraries (no slugs) never.
-			$o += array( 'removable' => (bool) $o['slugs'] );
+			$o += array( 'prefix' => array(), 'exact' => array(), 'options' => array(), 'data' => array(), 'note' => '', 'slugs' => array(), 'themes' => array() );
+			// Any recognized plugin's or theme's tables can be removed once it is inactive; shared libraries (neither) never.
+			$o += array( 'removable' => $o['slugs'] || $o['themes'] );
 		}
 		unset( $o );
 		return $owners;
@@ -185,7 +187,7 @@ class LXJ_Tables {
 			$groups[ $o['id'] ] = array(
 				'id'        => $o['id'],
 				'name'      => $o['name'],
-				'status'    => $o['slugs'] ? self::plugin_status( $o['slugs'] ) : 'shared',
+				'status'    => self::owner_status( $o ),
 				'tables'    => array(),
 				'size'      => 0,
 				'removable' => $o['removable'],
@@ -373,6 +375,9 @@ class LXJ_Tables {
 		if ( 'active' === $status ) {
 			return 'The plugin is active. Deactivate and delete it first.';
 		}
+		if ( 'active theme' === $status ) {
+			return 'The theme is active (directly or as the parent of the active child theme). Switch themes and delete it first.';
+		}
 		if ( 'shared' === $status ) {
 			return 'Shared library used by several plugins.';
 		}
@@ -393,6 +398,19 @@ class LXJ_Tables {
 			}
 		}
 		return implode( ', ', $parts );
+	}
+
+	/**
+	 * Status of a table owner: a plugin, a theme, both (Avada), or a shared library (neither).
+	 *
+	 * @param array $o Owner from owners().
+	 * @return string active|inactive|not installed|active theme|inactive theme|theme not installed|shared
+	 */
+	private static function owner_status( array $o ) {
+		if ( $o['themes'] ) {
+			return LXJ_Autoload::owner_status( $o['slugs'], $o['themes'] );
+		}
+		return $o['slugs'] ? self::plugin_status( $o['slugs'] ) : 'shared';
 	}
 
 	private static function match( $suffix, array $owners ) {
