@@ -225,8 +225,10 @@ class LXJ_Autoload {
 	 * Option prefixes whose names don't resemble the plugin's folder slug, so slug matching misses them.
 	 * Filterable with `lxjanitor_option_owners`.
 	 *
-	 * @return array[] prefix (string, case-insensitive), name, slugs (plugin folder slugs), themes (theme folder slugs),
-	 *                 status (optional fixed status, e.g. 'legacy', instead of checking plugins/themes)
+	 * @return array[] prefix (string or list of strings, case-insensitive), name, slugs (plugin folder slugs),
+	 *                 themes (theme folder slugs), status (optional fixed status, e.g. 'legacy', instead of checking
+	 *                 plugins/themes), status_callback (optional callable returning the status, for owners that
+	 *                 are not one plugin or theme)
 	 */
 	public static function option_owners() {
 		return apply_filters(
@@ -375,6 +377,47 @@ class LXJ_Autoload {
 					'name'   => 'Site Mailer (Elementor)',
 					'slugs'  => array( 'site-mailer' ),
 				),
+				array(
+					// bsr_data holds the results of the last run, kept only to show them on the next screen.
+					'prefix' => 'bsr_',
+					'name'   => 'Better Search Replace (bsr_data is the results of the last run; safe to delete)',
+					'slugs'  => array( 'better-search-replace', 'better-search-replace-pro' ),
+				),
+				array(
+					// Brainstorm Force's shared license and update library (bsf-core). The misspelling is theirs.
+					'prefix' => 'brainstrom_',
+					'name'   => 'Brainstorm Force license and updates (Ultimate Addons, Astra Pro and others)',
+					'slugs'  => array( 'bb-ultimate-addon', 'ultimate-elementor', 'astra-addon', 'astra-pro-sites', 'convertpro', 'wp-schema-pro', 'cartflows-pro' ),
+					'themes' => array( 'astra' ),
+				),
+				// Beaver Builder (formerly FastLine) names everything fl_. Themer first, so fl_theme doesn't claim its options.
+				array(
+					'prefix' => array( 'fl_theme_builder', 'fl-theme-builder', '_fl_theme_builder' ),
+					'name'   => 'Beaver Themer',
+					'slugs'  => array( 'bb-theme-builder' ),
+				),
+				array(
+					'prefix' => array( 'fl-theme', 'fl_theme' ),
+					'name'   => 'Beaver Builder Theme',
+					'themes' => array( 'bb-theme' ),
+				),
+				array(
+					'prefix' => array( 'fl_builder', 'fl-builder', '_fl_builder' ),
+					'name'   => 'Beaver Builder',
+					'slugs'  => array( 'bb-plugin', 'beaver-builder-lite-version' ),
+				),
+				array(
+					'prefix' => 'oe_',
+					'name'   => 'Ocean Extra (OceanWP)',
+					'slugs'  => array( 'ocean-extra' ),
+					'themes' => array( 'oceanwp' ),
+				),
+				array(
+					// One set of options shared by every Freemius-powered plugin and theme on the site.
+					'prefix'          => array( 'fs_accounts', 'fs_active_plugins', 'fs_api_cache', 'fs_gdpr', 'fs_debug_mode' ),
+					'name'            => 'Freemius SDK (licensing library shared by several plugins and themes)',
+					'status_callback' => array( __CLASS__, 'freemius_status' ),
+				),
 			)
 		);
 	}
@@ -385,12 +428,48 @@ class LXJ_Autoload {
 	 */
 	private static function known_owner( $option ) {
 		foreach ( self::option_owners() as $o ) {
-			if ( 0 === stripos( $option, $o['prefix'] ) ) {
-				$status = $o['status'] ?? self::owner_status( $o['slugs'] ?? array(), $o['themes'] ?? array() );
+			foreach ( (array) $o['prefix'] as $prefix ) {
+				if ( '' === $prefix || 0 !== stripos( $option, $prefix ) ) {
+					continue;
+				}
+				if ( isset( $o['status'] ) ) {
+					$status = $o['status'];
+				} elseif ( isset( $o['status_callback'] ) && is_callable( $o['status_callback'] ) ) {
+					$status = (string) call_user_func( $o['status_callback'] );
+				} else {
+					$status = self::owner_status( $o['slugs'] ?? array(), $o['themes'] ?? array() );
+				}
 				return array( 'name' => $o['name'], 'status' => $status );
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Freemius is bundled inside other products, so its status comes from the SDK itself: loaded means an
+	 * active plugin or theme uses it; otherwise any installed plugin or theme that ships a freemius folder
+	 * means it is installed but inactive.
+	 *
+	 * @return string active|inactive|not installed
+	 */
+	public static function freemius_status() {
+		static $status = null;
+		if ( null !== $status ) {
+			return $status;
+		}
+		if ( class_exists( 'Freemius', false ) || function_exists( 'fs_dynamic_init' ) ) {
+			return $status = 'active';
+		}
+		$roots = array( WP_PLUGIN_DIR, get_theme_root() );
+		foreach ( $roots as $root ) {
+			// The SDK sits at the top of the product folder or one or two levels down (vendor/, includes/, lib/...).
+			foreach ( array( '/*/freemius', '/*/*/freemius', '/*/*/*/freemius' ) as $pattern ) {
+				if ( glob( $root . $pattern, GLOB_ONLYDIR ) ) {
+					return $status = 'inactive';
+				}
+			}
+		}
+		return $status = 'not installed';
 	}
 
 	/**
